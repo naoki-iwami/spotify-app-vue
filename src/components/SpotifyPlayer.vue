@@ -13,15 +13,22 @@
         <dt>Artist name</dt>
         <dd class="text-overflow display-4 text-primary">{{artistName}}</dd>
 
-        <dt v-if="formattedProgress != null">Song progress</dt>
-        <dd v-if="formattedProgress != null" class="text-overflow">{{formattedProgress}} ({{formattedDuration}})</dd>
+        <dt v-if="formattedProgress != null">
+          Song progress
+          <i v-if="currentDeviceType === 'Speaker'" class="bi-speaker text-secondary"></i>
+        </dt>
+        <dd v-if="formattedProgress != null" class="text-overflow">
+          <i v-if="currentPlayerIsPlaying === false" class="bi-pause text-secondary"></i>
+          <i v-if="currentPlayerIsPlaying === true" class="bi-play-circle-fill text-secondary"></i>
+          {{formattedProgress}} ({{formattedDuration}})
+        </dd>
 
         <dt>Playlist name</dt>
         <dd class="text-overflow">{{playlistName}}</dd>
 
       </dl>
-      <button v-on:click="play" class="btn btn-link">Play</button>
-      <button v-on:click="pause" class="btn btn-link">Pause</button>
+      <button v-if="currentPlayerIsPlaying === false" v-on:click="play" class="btn btn-link">Play</button>
+      <button v-if="currentPlayerIsPlaying === true" v-on:click="pause" class="btn btn-link">Pause</button>
     </div>
   </div>
   <div v-if="existPlaylist && !existCurrentTrack">
@@ -45,6 +52,9 @@ export default {
     return {
       existPlaylist: false,
       existCurrentTrack: false,
+      currentPlayerIsPlaying: false,
+      currentDeviceType: null,
+      currentDeviceId: null,
       favorite: false,
       countTimer: null,
       progressMs: null,
@@ -60,20 +70,35 @@ export default {
     }
   },
   mounted() {
+    // まずは現在のプレーヤーで再生されている情報を取得
     this.fetchPlayer();
   },
   methods: {
     play: function () {
       this.resetTimer();
-      SpotifyRequest.put('/v1/me/player/play').then(response => {
+      let url = '/v1/me/player/play'
+      if (this.primaryDeviceId != null) url += `?device_id=${this.primaryDeviceId}`
+      SpotifyRequest.put(url).then(response => {
         console.log(response);
         this.fetchPlayer();
+      }).catch(error => {
+        // 現在アクティブなデバイスが見つからない場合など
+        console.log(error.response.status); // ex. 404
       })
     },
     pause: function () {
       this.resetTimer();
+      this.currentPlayerIsPlaying = false;
       SpotifyRequest.put('/v1/me/player/pause').then(response => {
         console.log(response);
+      })
+    },
+    playWithPrimaryDevice: function() {
+      this.decideMainDevice().then(deviceId => {
+        SpotifyRequest.put(`/v1/me/player/play?device_id=${deviceId}`).then(response => {
+          console.log(response);
+          this.fetchPlayer();
+        })
       })
     },
     playLastPlaylist: function() {
@@ -85,7 +110,6 @@ export default {
           console.log(response);
           this.fetchPlayer();
         })
-
       })
     },
     decideMainDevice: function() {
@@ -103,7 +127,13 @@ export default {
         const data = response.data;
         console.log(response);
 
+        if (data.device != null) {
+          this.currentDeviceType = data.device.type;
+          this.currentDeviceId = data.device.id;
+        }
+
         if (data.item != null) {
+          // 現在再生されている曲がある場合
           this.progress_ms = data.progress_ms;
           this.artistName = data.item.artists[0].name;
           this.songName = data.item.name;
@@ -115,6 +145,7 @@ export default {
           this.existCurrentTrack = true;
 
           let self = this;
+          this.currentPlayerIsPlaying = data.is_playing;
           if (data.is_playing) {
             this.countTimer = setTimeout(
                 function () {
@@ -131,10 +162,27 @@ export default {
           const trackId = data.item.id;
           this.fetchTrack(trackId);
         } else {
-          // empty
-          this.fetchRecentlyPlayed();
+          // 現在再生されている曲がない場合、プライマリデバイス上にプレイバックを復帰させる
+          this.fetchPlayerWithPrimaryDevice();
         }
 
+      })
+    },
+    fetchPlayerWithPrimaryDevice: function() {
+      // プライマリデバイスを取得して、そこにプレイバックを移す。
+      // これによって Player が最後に再生されていた状態で戻る
+      this.decideMainDevice().then(deviceId => {
+        console.log(deviceId);
+        SpotifyRequest.put('/v1/me/player', {
+          'device_ids': [ deviceId ]
+        }).then(response => {
+          console.log(response);
+          this.fetchPlayer();
+        }).catch(error => {
+          // console.log(error);
+          console.log(error.response.status); // ex. 400
+          this.fetchRecentlyPlayed();
+        })
       })
     },
     fetchRecentlyPlayed: function () {
