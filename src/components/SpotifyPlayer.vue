@@ -41,6 +41,9 @@
   <div v-if="!existCurrentTrack && !existPlaylist">
     not track and playlist
   </div>
+  <div>
+    <button v-on:click="reload" class="btn btn-link">Reload</button>
+  </div>
 </template>
 <script>
 import SpotifyRequest from "@/utils/SpotifyRequest";
@@ -71,15 +74,21 @@ export default {
   },
   mounted() {
     // まずは現在のプレーヤーで再生されている情報を取得
+    console.log("mopunted -> fetchPlayer");
     this.fetchPlayer();
   },
   methods: {
+    reload: function () {
+      console.log("reload -> fetchPlayer");
+      this.fetchPlayer();
+    },
     play: function () {
       this.resetTimer();
       let url = '/v1/me/player/play'
       if (this.primaryDeviceId != null) url += `?device_id=${this.primaryDeviceId}`
       SpotifyRequest.put(url).then(response => {
         console.log(response);
+        console.log("play -> fetchPlayer");
         this.fetchPlayer();
       }).catch(error => {
         // 現在アクティブなデバイスが見つからない場合など
@@ -97,6 +106,7 @@ export default {
       this.decideMainDevice().then(deviceId => {
         SpotifyRequest.put(`/v1/me/player/play?device_id=${deviceId}`).then(response => {
           console.log(response);
+          console.log("playWithPrimaryDevice -> fetchPlayer");
           this.fetchPlayer();
         })
       })
@@ -108,6 +118,7 @@ export default {
           'context_uri': this.playlistUri
         }).then(response => {
           console.log(response);
+          console.log("playLastPlaylist -> fetchPlayer");
           this.fetchPlayer();
         })
       })
@@ -147,6 +158,7 @@ export default {
           let self = this;
           this.currentPlayerIsPlaying = data.is_playing;
           if (data.is_playing) {
+            this.resetTimer();
             this.countTimer = setTimeout(
                 function () {
                   self.count();
@@ -177,6 +189,7 @@ export default {
           'device_ids': [ deviceId ]
         }).then(response => {
           console.log(response);
+          console.log("fetchPlayerWithPrimaryDevice -> fetchPlayer");
           this.fetchPlayer();
         }).catch(error => {
           // console.log(error);
@@ -226,8 +239,12 @@ export default {
     },
     count: function () {
       let self = this;
-      if (this.leftMs < 1000) {
-        // empty
+      if (this.leftMs == null) {
+        // nothing
+      } else if (this.leftMs < 1000) {
+        console.log(`count -> fetchPlayer leftMs = ${this.leftMs}`);
+        this.leftMs = null;
+        this.fetchPlayer();
       } else {
         this.progressMs += 1000;
         this.leftMs -= 1000;
