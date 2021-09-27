@@ -44,6 +44,9 @@
   <div>
     <button v-on:click="reload" class="btn btn-link">Reload</button>
   </div>
+  <div>
+    <button v-on:click="fullscreen" class="btn btn-link">Fullscreen</button>
+  </div>
 </template>
 <script>
 import SpotifyRequest from "@/utils/SpotifyRequest";
@@ -81,6 +84,10 @@ export default {
     reload: function () {
       console.log("reload -> fetchPlayer");
       this.fetchPlayer();
+    },
+    fullscreen: function() {
+      // document.body.requestFullscreen();
+      document.documentElement.requestFullscreen();
     },
     play: function () {
       this.resetTimer();
