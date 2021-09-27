@@ -7,7 +7,7 @@
           Song name
         </dt>
         <dd class="text-overflow text-info">
-          <span class="display-4">{{songName}}</span>
+          <span class="display-2">{{songName}}</span>
         </dd>
 
         <dt>Artist name</dt>
