@@ -168,6 +168,7 @@ export default {
 
           if (data.context != null) {
             let playlistId = data.context.uri.match(/:([^:]*)$/)[1];
+            console.log('fetchPlayer -> fetchPlaylist');
             this.fetchPlaylist(playlistId);
           }
 
@@ -228,9 +229,10 @@ export default {
       });
     },
     fetchPlaylist: function (playlistId) {
-
+      console.log('fetchPlaylist');
       SpotifyRequest.get(`/v1/playlists/${playlistId}`).then(response => {
         const data = response.data;
+        console.log('RESPONSE `/v1/playlists/${playlistId}`');
         console.log(data);
         this.playlistName = data.name;
         this.playlistUri = data.uri;
@@ -244,7 +246,11 @@ export default {
       } else if (this.leftMs < 1000) {
         console.log(`count -> fetchPlayer leftMs = ${this.leftMs}`);
         this.leftMs = null;
-        this.fetchPlayer();
+        setTimeout(
+            function () {
+              self.fetchPlayer();
+            }, 1000
+        )
       } else {
         this.progressMs += 1000;
         this.leftMs -= 1000;
