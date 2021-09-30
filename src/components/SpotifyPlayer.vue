@@ -23,29 +23,24 @@
           {{formattedProgress}} ({{formattedDuration}})
         </dd>
 
-        <dt>Playlist name</dt>
-        <dd class="text-overflow">{{playlistName}}</dd>
+        <dt>
+          {{contextType}} name
+        </dt>
+        <dd class="text-overflow">{{contextName}}</dd>
 
       </dl>
       <button v-if="currentPlayerIsPlaying === false" v-on:click="play" class="btn btn-link">Play</button>
       <button v-if="currentPlayerIsPlaying === true" v-on:click="pause" class="btn btn-link">Pause</button>
     </div>
   </div>
-  <div v-if="existPlaylist && !existCurrentTrack">
+  <div v-if="contextName && !existCurrentTrack">
     <dl class="dl-horizontal">
-      <dt>Playlist name</dt>
-      <dd class="text-overflow">{{playlistName}}</dd>
+      <dt>{{contextType}} name</dt>
+      <dd class="text-overflow">{{contextName}}</dd>
     </dl>
-    <button v-on:click="playLastPlaylist" class="btn btn-link">Play last playlist</button>
+    <button v-on:click="playLastContext" class="btn btn-link">Play last context</button>
   </div>
-  <div v-if="existArtist && !existCurrentTrack">
-    <dl class="dl-horizontal">
-      <dt>Artist name</dt>
-      <dd class="text-overflow">{{artistName}}</dd>
-    </dl>
-    <button v-on:click="playLastArtist" class="btn btn-link">Play artist</button>
-  </div>
-  <div v-if="!existCurrentTrack && !existPlaylist && !existArtist">
+  <div v-if="!existCurrentTrack && !contextName">
     not track and playlist
   </div>
   <div>
@@ -58,7 +53,6 @@
 <script>
 import SpotifyRequest from "@/utils/SpotifyRequest";
 import moment from "moment";
-//import axios from "axios";
 
 export default {
   name: 'SpotifyPlayer',
@@ -77,9 +71,9 @@ export default {
       progress_ms: null,
       artistName: null,
       songName: null,
-      playlistName: null,
-      playlistUri: null,
-      artistUri: null,
+      contextType: null,
+      contextName: null,
+      contextUri: null,
       formattedDuration: null,
       formattedProgress: null,
       primaryDeviceId: null
@@ -128,25 +122,14 @@ export default {
         })
       })
     },
-    playLastPlaylist: function() {
+    playLastContext: function() {
       this.decideMainDevice().then(deviceId => {
         console.log(deviceId);
         SpotifyRequest.put(`/v1/me/player/play?device_id=${deviceId}`, {
-          'context_uri': this.playlistUri
+          'context_uri': this.contextUri
         }).then(response => {
           console.log(response);
-          console.log("playLastPlaylist -> fetchPlayer");
-          this.fetchPlayer();
-        })
-      })
-    },
-    playLastArtist: function() {
-      this.decideMainDevice().then(deviceId => {
-        SpotifyRequest.put(`/v1/me/player/play?device_id=${deviceId}`, {
-          'context_uri': this.artistUri
-        }).then(response => {
-          console.log(response);
-          console.log("playLastArtist -> fetchPlayer");
+          console.log("playLastContext -> fetchPlayer");
           this.fetchPlayer();
         })
       })
@@ -196,14 +179,18 @@ export default {
 
           if (data.context != null) {
             // let contextUri = data.context.uri.match(/:([^:]*)$/)[1];
-            if (data.context.type == 'playlist') {
+            if (data.context.type === 'playlist') {
               let playlistId = data.context.uri.match(/:([^:]*)$/)[1];
               console.log('fetchPlayer -> fetchPlaylist');
               this.fetchPlaylist(playlistId);
             }
-            if (data.context.type == 'artist') {
+            if (data.context.type === 'artist') {
               let artistId = data.context.uri.match(/:([^:]*)$/)[1];
               this.fetchArtist(artistId);
+            }
+            if (data.context.type === 'album') {
+              let albumId = data.context.uri.match(/:([^:]*)$/)[1];
+              this.fetchAlbum(albumId);
             }
           }
 
@@ -215,7 +202,7 @@ export default {
         }
 
       }).catch(error => {
-        if (error.response.status == 401) {
+        if (error.response.status === 401) {
           this.refreshToken();
         }
       })
@@ -284,9 +271,9 @@ export default {
         const data = response.data;
         console.log('RESPONSE `/v1/playlists/${playlistId}`');
         console.log(data);
-        this.playlistName = data.name;
-        this.playlistUri = data.uri;
-        this.existPlaylist = true;
+        this.contextName = data.name;
+        this.contextUri = data.uri;
+        this.contextType = 'playlist';
       })
     },
     fetchArtist: function (artistId) {
@@ -295,9 +282,20 @@ export default {
         const data = response.data;
         console.log('RESPONSE `/v1/artists/${artistId}`');
         console.log(data);
-        this.artistName = data.name;
-        this.artistUri = data.uri;
-        this.existArtist = true;
+        this.contextName = data.name;
+        this.contextUri = data.uri;
+        this.contextType = 'artist';
+      })
+    },
+    fetchAlbum: function (albumId) {
+      console.log('fetchAlbum');
+      SpotifyRequest.get(`/v1/albums/${albumId}`).then(response => {
+        const data = response.data;
+        console.log('RESPONSE `/v1/albums/${albumId}`');
+        console.log(data);
+        this.contextName = data.name;
+        this.contextUri = data.uri;
+        this.contextType = 'album';
       })
     },
     count: function () {
