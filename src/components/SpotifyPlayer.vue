@@ -38,7 +38,14 @@
     </dl>
     <button v-on:click="playLastPlaylist" class="btn btn-link">Play last playlist</button>
   </div>
-  <div v-if="!existCurrentTrack && !existPlaylist">
+  <div v-if="existArtist && !existCurrentTrack">
+    <dl class="dl-horizontal">
+      <dt>Artist name</dt>
+      <dd class="text-overflow">{{artistName}}</dd>
+    </dl>
+    <button v-on:click="playLastArtist" class="btn btn-link">Play artist</button>
+  </div>
+  <div v-if="!existCurrentTrack && !existPlaylist && !existArtist">
     not track and playlist
   </div>
   <div>
@@ -51,12 +58,14 @@
 <script>
 import SpotifyRequest from "@/utils/SpotifyRequest";
 import moment from "moment";
+//import axios from "axios";
 
 export default {
   name: 'SpotifyPlayer',
   data() {
     return {
       existPlaylist: false,
+      existArtist: false,
       existCurrentTrack: false,
       currentPlayerIsPlaying: false,
       currentDeviceType: null,
@@ -70,6 +79,7 @@ export default {
       songName: null,
       playlistName: null,
       playlistUri: null,
+      artistUri: null,
       formattedDuration: null,
       formattedProgress: null,
       primaryDeviceId: null
@@ -130,6 +140,17 @@ export default {
         })
       })
     },
+    playLastArtist: function() {
+      this.decideMainDevice().then(deviceId => {
+        SpotifyRequest.put(`/v1/me/player/play?device_id=${deviceId}`, {
+          'context_uri': this.artistUri
+        }).then(response => {
+          console.log(response);
+          console.log("playLastArtist -> fetchPlayer");
+          this.fetchPlayer();
+        })
+      })
+    },
     decideMainDevice: function() {
       return SpotifyRequest.get('/v1/me/player/devices').then(response => {
         console.log(response);
@@ -174,9 +195,16 @@ export default {
           }
 
           if (data.context != null) {
-            let playlistId = data.context.uri.match(/:([^:]*)$/)[1];
-            console.log('fetchPlayer -> fetchPlaylist');
-            this.fetchPlaylist(playlistId);
+            // let contextUri = data.context.uri.match(/:([^:]*)$/)[1];
+            if (data.context.type == 'playlist') {
+              let playlistId = data.context.uri.match(/:([^:]*)$/)[1];
+              console.log('fetchPlayer -> fetchPlaylist');
+              this.fetchPlaylist(playlistId);
+            }
+            if (data.context.type == 'artist') {
+              let artistId = data.context.uri.match(/:([^:]*)$/)[1];
+              this.fetchArtist(artistId);
+            }
           }
 
           const trackId = data.item.id;
@@ -186,7 +214,22 @@ export default {
           this.fetchPlayerWithPrimaryDevice();
         }
 
+      }).catch(error => {
+        if (error.response.status == 401) {
+          this.refreshToken();
+        }
       })
+    },
+    refreshToken: function() {
+      console.log('refreshToken');
+      SpotifyRequest.post('/api/token', new URLSearchParams({
+        'grant_type': 'refresh_token',
+        'refresh_token': localStorage.refreshToken
+      })).then(response => {
+        console.log(response);
+        const accessToken = response.data.access_token;
+        localStorage.accessToken = accessToken;
+      });
     },
     fetchPlayerWithPrimaryDevice: function() {
       // プライマリデバイスを取得して、そこにプレイバックを移す。
@@ -244,6 +287,17 @@ export default {
         this.playlistName = data.name;
         this.playlistUri = data.uri;
         this.existPlaylist = true;
+      })
+    },
+    fetchArtist: function (artistId) {
+      console.log('fetchArtist');
+      SpotifyRequest.get(`/v1/artists/${artistId}`).then(response => {
+        const data = response.data;
+        console.log('RESPONSE `/v1/artists/${artistId}`');
+        console.log(data);
+        this.artistName = data.name;
+        this.artistUri = data.uri;
+        this.existArtist = true;
       })
     },
     count: function () {

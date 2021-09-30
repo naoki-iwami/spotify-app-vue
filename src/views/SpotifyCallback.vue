@@ -12,7 +12,7 @@ import SpotifySecret from "@/defines/SpotifySecret.js";
 const stateKey = 'spotify_auth_state';
 
 export default {
-  name: 'HelloWorld',
+  name: 'SpotifyCallback',
   props: {
     msg: String
   },
@@ -46,8 +46,9 @@ export default {
       ).then(response => {
         console.log(response);
         const accessToken = response.data.access_token;
-        //const refreshToken = response.data.refresh_token;
+        const refreshToken = response.data.refresh_token;
         localStorage.accessToken = accessToken;
+        localStorage.refreshToken = refreshToken;
         router.push('/spotify-start');
 
 /*

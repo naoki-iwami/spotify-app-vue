@@ -30,4 +30,17 @@ export default class SpotifyRequest {
         )
     }
 
+    static post(url, data = {}) {
+        console.log(url)
+        return axios.post(
+            'https://api.spotify.com' + url,
+            data,
+            {
+                headers: {
+                    'Authorization': 'Bearer ' + localStorage.accessToken
+                }
+            }
+        )
+    }
+
 }
