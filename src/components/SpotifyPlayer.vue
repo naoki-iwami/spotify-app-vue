@@ -29,6 +29,11 @@
         <dd class="text-overflow">{{contextName}}</dd>
 
       </dl>
+
+      <div v-if="currentDeviceVolume != null">Volume:
+        {{currentDeviceVolume}}
+      </div>
+
       <button v-if="currentPlayerIsPlaying === false" v-on:click="play" class="btn btn-link">Play</button>
       <button v-if="currentPlayerIsPlaying === true" v-on:click="pause" class="btn btn-link">Pause</button>
     </div>
@@ -64,6 +69,7 @@ export default {
       currentPlayerIsPlaying: false,
       currentDeviceType: null,
       currentDeviceId: null,
+      currentDeviceVolume: null,
       favorite: false,
       countTimer: null,
       progressMs: null,
@@ -152,6 +158,7 @@ export default {
         if (data.device != null) {
           this.currentDeviceType = data.device.type;
           this.currentDeviceId = data.device.id;
+          this.currentDeviceVolume = data.device.volume_percent;
         }
 
         if (data.item != null) {
